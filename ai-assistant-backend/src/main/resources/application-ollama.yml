@@ -1,0 +1,17 @@
+langchain4j:
+  ollama:
+    chat-model:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      model-name: mistral
+      temperature: 0.0
+      timeout: 120s
+      log-requests: true
+      log-responses: true
+    streaming-chat-model:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      model-name: mistral
+      temperature: 0.0
+      timeout: 180s
+      log-requests: true
+      log-responses: true
+

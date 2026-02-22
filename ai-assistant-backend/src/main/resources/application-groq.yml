@@ -1,0 +1,17 @@
+langchain4j:
+  open-ai:
+    chat-model:
+      base-url: https://api.groq.com/openai/v1
+      api-key: ${GROQ_API_KEY}
+      model-name: llama-3.3-70b-versatile
+      temperature: 0.7
+      timeout: 60s
+      log-requests: true
+      log-responses: true
+    streaming-chat-model:
+      base-url: https://api.groq.com/openai/v1
+      api-key: ${GROQ_API_KEY}
+      model-name: llama-3.3-70b-versatile
+      timeout: 120s
+      log-requests: true
+      log-responses: true

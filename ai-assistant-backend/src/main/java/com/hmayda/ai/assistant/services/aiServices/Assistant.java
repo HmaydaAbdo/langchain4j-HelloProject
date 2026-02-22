@@ -1,5 +1,6 @@
 package com.hmayda.ai.assistant.services.aiServices;
 
+import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
@@ -18,5 +19,6 @@ public interface Assistant {
             """)
     @UserMessage("Suggest a {{dietaryRestriction}} recipe using these ingredients: {{ingredients}}.")
     String suggestRecipe(@V("ingredients") String ingredients,
-                         @V("dietaryRestriction") String dietaryRestriction);
+                         @V("dietaryRestriction") String dietaryRestriction,
+                         @MemoryId String conversationId);
 }

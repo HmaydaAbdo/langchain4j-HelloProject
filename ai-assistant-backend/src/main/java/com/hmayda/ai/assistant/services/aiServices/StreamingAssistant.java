@@ -1,5 +1,6 @@
 package com.hmayda.ai.assistant.services.aiServices;
 
+import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.TokenStream;
 import dev.langchain4j.service.UserMessage;
@@ -20,5 +21,6 @@ public interface StreamingAssistant {
             """)
     TokenStream generateStory(@V("genre") String genre,
                               @V("character") String character,
-                              @V("setting") String setting);
+                              @V("setting") String setting,
+                              @MemoryId String conversationId);
 }
