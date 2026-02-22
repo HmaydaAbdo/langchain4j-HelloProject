@@ -1,33 +1,37 @@
 package com.hmayda.ai.assistant.config;
 
-import dev.langchain4j.memory.chat.MessageWindowChatMemory;
+import com.hmayda.ai.assistant.memory.SummarizingChatMemory;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
+import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.store.memory.chat.InMemoryChatMemoryStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Layer 1 Memory Configuration — conversationId-scoped, no auth required.
+ * Production Memory Configuration — summarizing, conversationId-scoped.
  *
- * Strategy: client generates a UUID on first call and passes it via the
- * "X-Conversation-Id" request header. The backend scopes a ChatMemory to
- * that ID, so conversation history is preserved across turns for the same ID.
+ * Strategy: instead of injecting raw conversation history (which grows
+ * indefinitely), the context window is kept flat at all times:
  *
- * Storage: InMemoryChatMemoryStore (lives in JVM heap).
- * — Good for development and single-instance deployments.
- * — To scale horizontally or survive restarts, swap with a Redis-backed
- *   implementation of ChatMemoryStore (Layer 1 upgrade path).
+ *   [System prompt]      ~200 tokens  fixed
+ *   [Rolling summary]    ~100 tokens  compressed history, updated incrementally
+ *   [Last 10 raw msgs]   ~400 tokens  sliding window for conversational coherence
+ *   ─────────────────────────────────────────────────────────────────────────
+ *   Total                ~700 tokens  regardless of conversation length
  *
- * Window: last 20 messages per conversation.
- * — Keeps token usage predictable and avoids context-window overflow.
- * — Tune maxMessages based on your LLM's context limit and cost tolerance.
+ * Summarization triggers when raw messages exceed 10.
+ * The oldest 4 messages are evicted and folded into the rolling summary.
+ * One extra LLM call is made at that point — subsequent turns are free again.
+ *
+ * To upgrade storage: swap InMemoryChatMemoryStore for a Redis-backed
+ * implementation of ChatMemoryStore — no other changes needed.
  */
 @Configuration
 public class ChatMemoryConfig {
 
     /**
      * Shared in-memory store — single source of truth for all conversations.
-     * Replace this bean with a RedisBackedChatMemoryStore for production scale.
+     * Replace with RedisBackedChatMemoryStore for horizontal scaling.
      */
     @Bean
     public InMemoryChatMemoryStore chatMemoryStore() {
@@ -35,17 +39,21 @@ public class ChatMemoryConfig {
     }
 
     /**
-     * Provider called by @AiService interfaces annotated with @MemoryId.
-     * Also injected manually into ChatService and StreamingChatService.
+     * Summarizing memory provider — one isolated SummarizingChatMemory per conversationId.
      *
-     * Each unique conversationId gets its own isolated MessageWindowChatMemory.
+     * maxRawMessages(10): keep up to 10 raw messages before summarizing.
+     * evictCount(4):      when triggered, fold the oldest 4 into the summary.
+     * Result after eviction: [summary] + [6 raw messages] — always under control.
      */
     @Bean
-    public ChatMemoryProvider chatMemoryProvider(InMemoryChatMemoryStore store) {
-        return conversationId -> MessageWindowChatMemory.builder()
+    public ChatMemoryProvider chatMemoryProvider(InMemoryChatMemoryStore store,
+                                                 ChatLanguageModel chatLanguageModel) {
+        return conversationId -> SummarizingChatMemory.builder()
                 .id(conversationId)
-                .maxMessages(20)
-                .chatMemoryStore(store)
+                .maxRawMessages(10)
+                .evictCount(4)
+                .summaryModel(chatLanguageModel)
+                .store(store)
                 .build();
     }
 }
